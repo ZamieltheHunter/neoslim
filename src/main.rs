@@ -1,6 +1,17 @@
 use pam_client::{Context, Flag};
 use pam_client::conv_cli::Conversation;
 
+fn startX() {
+    println!("Starting X not actually supported");
+
+    //TODO Actually start X11
+}
+
+fn authenticate() {
+    //TODO work on conversation handler
+    ()
+}
+
 fn main() {
     let mut username = String::new();
     let mut context  = Context::new(
