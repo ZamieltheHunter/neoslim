@@ -1,10 +1,8 @@
 #![allow(non_snake_case)]
-use pam_client::{Context, Flag};
-use pam_client::conv_cli::Conversation;
-use nix::sys::ioctl;
-use nix::ioctl_read_bad;
+use std::env;
+use pam_client::{Context, Flag,conv_cli::Conversation};
+use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{fork, ForkResult, write}};
 use core::ffi::c_ushort;
-use nix::fcntl::open;
 
 pub const VT_GETSTATE: u32 = 22019;
 #[repr (C)]
@@ -16,9 +14,29 @@ pub struct vt_stat {
 
 ioctl_read_bad!(getVTState, VT_GETSTATE, vt_stat);
 
-fn startX() {
-    //TODO Actually start X11
-    println!("Starting X not actually supported");
+fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
+    //TODO Start a Xephyr server for testing purposes (Thank you Gulshan Singh
+    //https://www.gulshansingh.com/posts/how-to-write-a-display-manager)
+    match unsafe {fork()} {
+        Ok(ForkResult::Parent {child, ..}) => {
+            println!("Parent here!");
+            Ok(())
+        },
+        Ok(ForkResult::Child) => {
+            println!("Child here!");
+            if(testing){
+                println!("Start Xephyr here");
+            } else {
+                println!("Start Xorg here");
+            }
+            std::process::exit(0);
+            Ok(())
+        },
+        Err(e) => {
+            println!("Failed to fork");
+            Err(e)
+        },
+    }
 }
 
 fn authenticate() {
@@ -26,23 +44,23 @@ fn authenticate() {
     ()
 }
 
-fn findVirtualTerminal() {
+fn findVirtualTerminal() -> Result<c_ushort, nix::Error> {
     // TODO Use IOCTL to get the current active virtual terminal so we know where to start X
     let termPath = "/dev/tty0";
-    let ttyFD = open(termPath, nix::fcntl::OFlag::O_RDONLY, nix::sys::stat::Mode::empty()).expect("Failed to open tty");
+    let ttyFD = open(termPath, OFlag::O_RDONLY, Mode::empty()).expect("Failed to open tty");
     println!("Looks like we opened the tty");
     let mut termInfo = vt_stat {v_active: 0,v_signal: 0,v_state: 0};
-    let mut termPtr: *mut vt_stat = &mut termInfo;
+    let termPtr: *mut vt_stat = &mut termInfo;
     let err = unsafe { getVTState(ttyFD, termPtr)};
     match err {
-        Err(e) => println!("Oofus, errored with code: {}", e),
-        Ok(_) => println!("We got some terminfo it is v_active: {}, v_signal: {}, v_state: {}", termInfo.v_active, termInfo.v_signal, termInfo.v_state),
+        Err(e) => Err(e),
+        Ok(_) => {
+            println!("We got some terminfo it is v_active: {}, v_signal: {}, v_state: {}", termInfo.v_active, termInfo.v_signal, termInfo.v_state);
+            Ok(termInfo.v_active)
+        },
     }
-    ()
 }
-fn main() {
-
-    findVirtualTerminal();
+fn startPAMAuthentication() -> Result<(), pam_client::ErrorWith<pam_client::ErrorCode>>{
     let mut username = String::new();
     let mut context  = Context::new(
         "neoslim",
@@ -73,4 +91,23 @@ fn main() {
         println!("VAR: {}", object);
     }
     let mut session = context.open_session(Flag::NONE).expect("RIP, don't got no open session");
+    Ok(())
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let testing = args.iter().any(|arg| arg == "-t");
+    match findVirtualTerminal(){
+        Err(e) => {
+            panic!("Failed to get the virtual terminal info with error: {}", e);
+        },
+        Ok(v_active) => {
+            match startServer(testing, v_active) {
+                Err(e) => panic!("Failed to start X server"),
+                Ok(_) => {
+                    startPAMAuthentication().unwrap();
+                }
+            };
+        },
+    };
 }
