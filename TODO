@@ -1,5 +1,5 @@
 - Figure out actually starting X
 - Make a conversation handler for the login
 - Make a gui for the login
-- 
+- Implement env setup for after login
 - Implement theming
