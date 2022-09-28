@@ -4,7 +4,6 @@ use pam_client::{Context, Flag,conv_cli::Conversation};
 use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{fork, ForkResult, write}};
 use core::ffi::c_ushort;
 
-
 // VT_GETSTATE and vt_stat are defined in /usr/include/linux/vt.h
 // Repr C ensures that the memory layout is the same as C's
 pub const VT_GETSTATE: u32 = 22019;
@@ -15,60 +14,12 @@ pub struct vt_stat {
     v_state: c_ushort
 }
 
+// Nix helper macro to generate the ioctl function call
 ioctl_read_bad!(getVTState, VT_GETSTATE, vt_stat);
-
-// This function will fork and then exec the server
-// If the -t flag is given on the command line we are in testing mode and will run Xephyr
-fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
-    //TODO Start a Xephyr server for testing purposes (Thank you Gulshan Singh
-    //https://www.gulshansingh.com/posts/how-to-write-a-display-manager)
-    match unsafe {fork()} {
-        Ok(ForkResult::Parent {child, ..}) => {
-            println!("Parent here!");
-            Ok(())
-        },
-        Ok(ForkResult::Child) => {
-            println!("Child here!");
-            if testing {
-                println!("Start Xephyr here");
-            } else {
-                println!("Start Xorg here");
-            }
-            std::process::exit(0);
-            Ok(())
-        },
-        Err(e) => {
-            println!("Failed to fork");
-            Err(e)
-        },
-    }
-}
 
 fn authenticate() {
     //TODO work on conversation handler
     ()
-}
-
-// Runs the VT_GETSTATE ioctl call to fetch the virtual terminal number of the current virtual
-// terminal to pass along to Xorg so it doesn't fail.
-fn findVirtualTerminal() -> Result<c_ushort, nix::Error> {
-    let termPath = "/dev/tty0";
-    let ttyFD = open(termPath, OFlag::O_RDONLY, Mode::empty()).expect("Failed to open tty");
-    println!("Looks like we opened the tty");
-
-    //Create the destination struct for the data
-    let mut termInfo = vt_stat {v_active: 0,v_signal: 0,v_state: 0};
-    let termPtr: *mut vt_stat = &mut termInfo;
-
-    // Actually runs the syscall that the ioctl_read_bad macro defined for us.
-    let err = unsafe { getVTState(ttyFD, termPtr)};
-    match err {
-        Err(e) => Err(e),
-        Ok(_) => {
-            println!("We got some terminfo it is v_active: {}, v_signal: {}, v_state: {}", termInfo.v_active, termInfo.v_signal, termInfo.v_state);
-            Ok(termInfo.v_active)
-        },
-    }
 }
 
 fn startPAMAuthentication() -> Result<(), pam_client::ErrorWith<pam_client::ErrorCode>>{
@@ -103,6 +54,55 @@ fn startPAMAuthentication() -> Result<(), pam_client::ErrorWith<pam_client::Erro
     }
     let mut session = context.open_session(Flag::NONE).expect("RIP, don't got no open session");
     Ok(())
+}
+
+// This function will fork and then exec the server
+// If the -t flag is given on the command line we are in testing mode and will run Xephyr
+fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
+    //TODO Start a Xephyr server for testing purposes (Thank you Gulshan Singh
+    //https://www.gulshansingh.com/posts/how-to-write-a-display-manager)
+    match unsafe {fork()} {
+        Ok(ForkResult::Parent {child, ..}) => {
+            println!("Parent here!");
+            Ok(())
+        },
+        Ok(ForkResult::Child) => {
+            println!("Child here!");
+            if testing {
+                println!("Start Xephyr here");
+            } else {
+                println!("Start Xorg here");
+            }
+            std::process::exit(0);
+            Ok(())
+        },
+        Err(e) => {
+            println!("Failed to fork");
+            Err(e)
+        },
+    }
+}
+
+// Runs the VT_GETSTATE ioctl call to fetch the virtual terminal number of the current virtual
+// terminal to pass along to Xorg so it doesn't fail.
+fn findVirtualTerminal() -> Result<c_ushort, nix::Error> {
+    let termPath = "/dev/tty0";
+    let ttyFD = open(termPath, OFlag::O_RDONLY, Mode::empty()).expect("Failed to open tty");
+    println!("Looks like we opened the tty");
+
+    //Create the destination struct for the data
+    let mut termInfo = vt_stat {v_active: 0,v_signal: 0,v_state: 0};
+    let termPtr: *mut vt_stat = &mut termInfo;
+
+    // Actually runs the syscall that the ioctl_read_bad macro defined for us.
+    let err = unsafe { getVTState(ttyFD, termPtr)};
+    match err {
+        Err(e) => Err(e),
+        Ok(_) => {
+            println!("We got some terminfo it is v_active: {}, v_signal: {}, v_state: {}", termInfo.v_active, termInfo.v_signal, termInfo.v_state);
+            Ok(termInfo.v_active)
+        },
+    }
 }
 
 // Checks for testing flag, then calls findVirtualTerminal for setup before sending the info to
