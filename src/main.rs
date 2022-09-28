@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
 use std::env;
 use pam_client::{Context, Flag,conv_cli::Conversation};
-use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{fork, ForkResult, write}};
+use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{execv, fork, ForkResult, write}};
 use core::ffi::c_ushort;
+use std::ffi::{CString, CStr};
 
 // VT_GETSTATE and vt_stat are defined in /usr/include/linux/vt.h
 // Repr C ensures that the memory layout is the same as C's
@@ -69,7 +70,11 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
         Ok(ForkResult::Child) => {
             println!("Child here!");
             if testing {
+                let command = CString::new("/usr/bin/Xephyr").expect("Failed to make cstring");
+                let args = &[CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("802x600").unwrap(), CString::new(":1").unwrap()];
                 println!("Start Xephyr here");
+                execv(&command, args).expect("Failed to exec :(");
+                std::process::exit(1);
             } else {
                 println!("Start Xorg here");
             }
