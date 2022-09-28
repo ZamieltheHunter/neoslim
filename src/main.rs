@@ -69,16 +69,21 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
         },
         Ok(ForkResult::Child) => {
             println!("Child here!");
-            if testing {
-                let command = CString::new("/usr/bin/Xephyr").expect("Failed to make cstring");
-                let args = &[CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("802x600").unwrap(), CString::new(":1").unwrap()];
-                println!("Start Xephyr here");
-                execv(&command, args).expect("Failed to exec :(");
-                std::process::exit(1);
-            } else {
-                println!("Start Xorg here");
-            }
-            std::process::exit(0);
+            let command = 
+                if testing { 
+                    CString::new("/usr/bin/Xephyr").expect("Failed to make cstring"); 
+                } else { 
+                    CString::new("/usr/lib/Xorg").expect("Failed to make cstring"); 
+                };
+            let args = 
+                if testing { 
+                    &[CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("802x600").unwrap(), CString::new(":1").unwrap()];
+                } else {
+                
+                }
+            
+            execv(&command, args).expect("Failed to exec :(");
+            std::process::exit(1);
             Ok(())
         },
         Err(e) => {
