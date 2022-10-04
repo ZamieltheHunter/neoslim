@@ -3,7 +3,7 @@ use std::env;
 use pam_client::{Context, Flag,conv_cli::Conversation};
 use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{execv, fork, ForkResult, write}};
 use core::ffi::c_ushort;
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 
 // VT_GETSTATE and vt_stat are defined in /usr/include/linux/vt.h
 // Repr C ensures that the memory layout is the same as C's
@@ -71,18 +71,18 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
             println!("Child here!");
             let command = 
                 if testing { 
-                    CString::new("/usr/bin/Xephyr").expect("Failed to make cstring"); 
+                    CString::new("/usr/bin/Xephyr").expect("Failed to make cstring")
                 } else { 
-                    CString::new("/usr/lib/Xorg").expect("Failed to make cstring"); 
+                    CString::new("/usr/lib/Xorg").expect("Failed to make cstring") 
                 };
             let args = 
                 if testing { 
-                    &[CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("802x600").unwrap(), CString::new(":1").unwrap()];
+                    Vec::from([CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("800x600").unwrap(), CString::new(":1").unwrap()])
                 } else {
-                
-                }
+                    Vec::from([CString::new(":1").unwrap(), CString::new(format!("vt{}",vtNum)).unwrap()])
+                };
             
-            execv(&command, args).expect("Failed to exec :(");
+            execv(&command, &args[..]).expect("Failed to exec :(");
             std::process::exit(1);
             Ok(())
         },
