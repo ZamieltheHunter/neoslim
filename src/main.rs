@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
-use std::env;
 use pam_client::{Context, Flag,conv_cli::Conversation};
-use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{execv, fork, ForkResult, write}};
+use nix::{sys::{ioctl,wait::waitpid,stat::Mode},ioctl_read_bad,fcntl::{OFlag,open},unistd::{execv, execve, fork, ForkResult, write}};
 use core::ffi::c_ushort;
 use std::ffi::CString;
 
@@ -81,7 +80,13 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
                 } else {
                     Vec::from([CString::new(":1").unwrap(), CString::new(format!("vt{}",vtNum)).unwrap()])
                 };
-            
+
+            if testing {
+                std::env::set_var("DISPLAY", ":0");  
+            } else {
+                std::env::set_var("DISPLAY", ":1");  
+            };
+
             execv(&command, &args[..]).expect("Failed to exec :(");
             std::process::exit(1);
             Ok(())
@@ -118,7 +123,7 @@ fn findVirtualTerminal() -> Result<c_ushort, nix::Error> {
 // Checks for testing flag, then calls findVirtualTerminal for setup before sending the info to
 // startServer
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
     let testing = args.iter().any(|arg| arg == "-t");
     match findVirtualTerminal(){
         Err(e) => {
