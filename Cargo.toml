@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 pam-client = "0.5.0"    # Application API wrapper to Pluggable Authentication Modules (PAM)
 nix = "0.25.0"          # Rust friendly bindings to *nix APIs
-x11 = "2.20.0"                            # X11 library bindings for Rust
+x11 = "2.20.0"          # X11 library bindings for Rust
