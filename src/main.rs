@@ -76,9 +76,10 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
                 };
             let args = 
                 if testing { 
-                    Vec::from([CString::new("-ac").unwrap(),CString::new("-br").unwrap(),CString::new("-noreset").unwrap(),CString::new("-screen").unwrap(),CString::new("800x600").unwrap(), CString::new(":1").unwrap()])
+//              ["-ac", "-br", "-noreset", "-screen","800x600", ":1"]
+                    Vec::from(["-ac", "-br", "-noreset", "-screen","800x600", ":1"].iter().map(|&e| CString::new(e).unwrap()).collect::<Vec<CString>>())
                 } else {
-                    Vec::from([CString::new(":1").unwrap(), CString::new(format!("vt{}",vtNum)).unwrap()])
+                    Vec::from([":1", &format!("vt{}",vtNum)].iter().map(|&e| CString::new(e).unwrap()).collect::<Vec<CString>>())
                 };
 
             if testing {
