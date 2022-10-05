@@ -76,9 +76,12 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
                 };
             let args = 
                 if testing { 
-//              ["-ac", "-br", "-noreset", "-screen","800x600", ":1"]
+//                  ["-ac", "-br", "-noreset", "-screen","800x600", ":1"]
+//                  Casts the created vector from String to CString for passing to exec
                     Vec::from(["-ac", "-br", "-noreset", "-screen","800x600", ":1"].iter().map(|&e| CString::new(e).unwrap()).collect::<Vec<CString>>())
                 } else {
+//                   Same as above, but also incorporates the virtual terminal number we got from
+//                   ioctl
                     Vec::from([":1", &format!("vt{}",vtNum)].iter().map(|&e| CString::new(e).unwrap()).collect::<Vec<CString>>())
                 };
 
@@ -100,14 +103,14 @@ fn startServer(testing: bool, vtNum: c_ushort) -> Result<(), nix::Error> {
 }
 
 // Runs the VT_GETSTATE ioctl call to fetch the virtual terminal number of the current virtual
-// terminal to pass along to Xorg so it doesn't fail.
+// terminal to pass along to Xorg so it doesn't segfault or error
 fn findVirtualTerminal() -> Result<c_ushort, nix::Error> {
     let termPath = "/dev/tty0";
     let ttyFD = open(termPath, OFlag::O_RDONLY, Mode::empty()).expect("Failed to open tty");
     println!("Looks like we opened the tty");
 
     //Create the destination struct for the data
-    let mut termInfo = vt_stat {v_active: 0,v_signal: 0,v_state: 0};
+    let mut termInfo = vt_stat{v_active: 0, v_signal: 0, v_state: 0};
     let termPtr: *mut vt_stat = &mut termInfo;
 
     // Actually runs the syscall that the ioctl_read_bad macro defined for us.
